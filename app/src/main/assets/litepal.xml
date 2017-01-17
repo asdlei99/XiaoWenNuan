@@ -1,0 +1,12 @@
+<litepal>
+    <dbname value="xiaowennuan" ></dbname>
+    <version value="6" ></version>
+    <list>
+        <mapping class="com.example.xiaowennuan.db.ArticleModel" />
+        <mapping class="com.example.xiaowennuan.db.ArticleHeartModel" />
+        <mapping class="com.example.xiaowennuan.db.ArticleReadModel" />
+        <mapping class="com.example.xiaowennuan.db.ArticlePhotoModel" />
+        <mapping class="com.example.xiaowennuan.db.ArticleRandomModel" />
+    </list>
+
+</litepal>

@@ -1,0 +1,28 @@
+<resources>
+    <string name="app_name">小温暖</string>
+    <string name="app_version">v1.1.1</string>
+    <string name="app_slogan">Warm your heart</string>
+
+    <!--footer-->
+    <string name="footer_loading">努力加载中...</string>
+    <string name="footer_network_error">点击重新加载</string>
+    <string name="footer_end">已经到底了</string>
+
+    <!--nav menu-->
+    <string name="nav_home">首页</string>
+    <string name="nav_heart">心语</string>
+    <string name="nav_read">阅读</string>
+    <string name="nav_photo">美图</string>
+    <string name="nav_rand">随便看看</string>
+    <string name="nav_about">关于</string>
+    <string name="nav_feedback">反馈</string>
+
+    <string name="title_activity_splash">小温暖</string>
+
+    <string name="about_text">小温暖是一款阅读应用。提供治愈系文字，暖心情感故事，正能量励志文章，豆瓣、微博、知乎、人人、微信热门阅读精选。喜欢的话就给个赞吧~</string>
+
+    <string name="domain_name">http://www.bigedianying.com:8006</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+</resources>
