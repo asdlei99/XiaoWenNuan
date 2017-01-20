@@ -26,7 +26,6 @@
 
         </android.support.design.widget.AppBarLayout>
 
-
         <WebView
             android:id="@+id/article_multi_photo_content_web_view"
             android:layout_width="match_parent"

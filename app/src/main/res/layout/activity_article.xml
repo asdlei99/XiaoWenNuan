@@ -48,38 +48,7 @@
             android:orientation="vertical"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="8dp"
             android:background="@color/white">
-
-            <!--<TextView
-                android:id="@+id/article_title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/black"
-                android:textSize="26sp"
-                android:layout_gravity="center_horizontal"
-                android:paddingTop="8dp"
-                android:paddingBottom="16dp"/>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="8dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="作者："
-                    android:textSize="16sp" />
-
-                <TextView
-                    android:id="@+id/article_author"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/button_login_color"
-                    android:textSize="16sp" />
-
-            </LinearLayout>-->
 
             <WebView
                 android:id="@+id/article_content_web_view"

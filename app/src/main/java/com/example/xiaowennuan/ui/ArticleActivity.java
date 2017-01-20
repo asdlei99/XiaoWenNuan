@@ -9,20 +9,19 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.example.xiaowennuan.R;
 import com.example.xiaowennuan.db.ArticleModel;
 import com.example.xiaowennuan.db.ArticleReadModel;
+import com.example.xiaowennuan.util.ShareSDKHelper;
 
 import org.litepal.crud.DataSupport;
 
@@ -45,6 +44,8 @@ public class ArticleActivity extends AppCompatActivity {
 
     private final static int READ = 1;
     private final static int MAIN = 0;
+
+    ArticleModel model;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -117,14 +118,14 @@ public class ArticleActivity extends AppCompatActivity {
             switch (msg.what) {
                 case MAIN:
                     ArrayList<ArticleModel> arrayList = (ArrayList<ArticleModel>) msg.obj;
-                    ArticleModel item = arrayList.get(0);
-                    if (item.image1 != null) {
-                        Log.d(TAG, item.image1);
-                        Glide.with(ArticleActivity.this).load(item.image1)
+                    model = arrayList.get(0);
+                    if (model.image1 != null) {
+                        Log.d(TAG, model.image1);
+                        Glide.with(ArticleActivity.this).load(model.image1)
                                 .placeholder(R.drawable.placeholder_big).into(toolBarImageView);
                     }
                     // 设置toolbar标题
-                    collapsingToolbar.setTitle(item.category);
+                    collapsingToolbar.setTitle(model.category);
 
                     WebView webView = (WebView) findViewById(R.id.article_content_web_view);
                     WebSettings settings = webView.getSettings();
@@ -139,7 +140,7 @@ public class ArticleActivity extends AppCompatActivity {
                             //progressBar.setVisibility(View.GONE);
                         }
                     });
-                    webView.loadDataWithBaseURL("http", item.content, "text/html", "utf-8", null);
+                    webView.loadDataWithBaseURL("http", model.content, "text/html", "utf-8", null);
             }
         }
     };
@@ -176,7 +177,7 @@ public class ArticleActivity extends AppCompatActivity {
             }
         }).start();
 
-        Log.d(TAG, "aid:" + String.valueOf(aId));
+        //Log.d(TAG, "aid:" + String.valueOf(aId));
         //Log.d(TAG, "size:" + String.valueOf(arrayList.size()));
     }
 
@@ -186,9 +187,32 @@ public class ArticleActivity extends AppCompatActivity {
             case android.R.id.home:
                 finish();
                 return true;
+            case R.id.menu_article_toolbar_share:
+                ArrayList<String> list = new ArrayList<>();
+                String domain = this.getString(R.string.domain_name);
+                String article_url = domain + "/articles/get_article/?id="
+                        + String.valueOf(model.aId);
+                list.add(model.title);  // setTitle
+                list.add(article_url);  // setTitleUrl
+                list.add(model.desc);  // setText
+                if (model.image1 != "" || model.image1 != null) {
+                    list.add(model.image1);  // setImageUrl
+                } else {
+                    list.add(domain + "/static/images/common/ic_launcher.png");  // 添加应用图标的url
+                }
+                list.add(article_url);  // setUrl
+                list.add("my comment");  // setComment
+                list.add("小温暖");  // setSite
+                list.add(domain);  // setSiteUrl
+                ShareSDKHelper helper = new ShareSDKHelper(this, list);
+                helper.showShare();
         }
         return super.onOptionsItemSelected(menuItem);
     }
 
-
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_article_toolbar, menu);
+        return true;
+    }
 }

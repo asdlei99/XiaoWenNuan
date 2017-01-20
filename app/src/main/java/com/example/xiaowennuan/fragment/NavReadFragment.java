@@ -247,11 +247,12 @@ public class NavReadFragment extends Fragment {
      */
     private void queryFromServer() {
         // 从网络获取
-        Log.d(TAG, "queryFromServer-mCurrentCounter:" + mCurrentCounter);
+        //Log.d(TAG, "queryFromServer-mCurrentCounter:" + mCurrentCounter);
         String queryAddress = getActivity().getString(R.string.domain_name) + "/articles/get_article_list/read/?action="
                 + requestAction + "&request_count=" + REQUEST_COUNT + "&current_count=" +
                 mCurrentCounter + "&newest_ts=" + newestTs;
         //showProgressDialog();
+        //Log.d(TAG, queryAddress);
         NetworkUtils.sendOkHttpRequest(queryAddress, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {

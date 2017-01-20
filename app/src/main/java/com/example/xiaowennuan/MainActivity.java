@@ -22,6 +22,7 @@ import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import com.example.xiaowennuan.db.ArticleRandomModel;
 import com.example.xiaowennuan.fragment.MainFragment;
@@ -35,6 +36,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 
+import cn.sharesdk.framework.ShareSDK;
 import okhttp3.Call;
 import okhttp3.Response;
 
@@ -103,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
                         toolbar.setTitle(R.string.nav_photo);
                         break;
                     case R.id.nav_rand:
+                        Toast.makeText(MainActivity.this, "正在为你挑选文章", Toast.LENGTH_SHORT).show();
                         new Thread(new Runnable() {
                             @Override
                             public void run() {
@@ -110,7 +113,9 @@ public class MainActivity extends AppCompatActivity {
                                 message.what = RANDOM;
                                 randHandler.sendMessage(message);
                             }
+
                         }).start();
+
                         //progressBar.setVisibility(View.VISIBLE);
                         break;
                     case R.id.nav_about:
@@ -148,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
 
                 mDrawerLayout.closeDrawers();  // 关闭drawer
                 // 菜单点击处理
-                Log.d(TAG, "getItemId:" + String.valueOf(item.getItemId()));
+                //Log.d(TAG, "getItemId:" + String.valueOf(item.getItemId()));
                 navItemId = item.getItemId();
 
                 return true;
@@ -157,9 +162,24 @@ public class MainActivity extends AppCompatActivity {
 
         });
 
+        // SDKShare 初始化
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ShareSDK.initSDK(MainActivity.this);
+            }
+        });
+
+
         // Fragment initialization
         setDefaultFragment();
 
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        ShareSDK.stopSDK(this);
     }
 
     /**
@@ -167,7 +187,6 @@ public class MainActivity extends AppCompatActivity {
      */
     private Handler randHandler = new Handler() {
         public void handleMessage(Message msg) {
-            Log.d("TAG", MainActivity.this.getString(R.string.domain_name));
             String queryAddress = MainActivity.this.getString(R.string.domain_name)
                     + "/articles/get_rand_article/";
             switch (msg.what) {

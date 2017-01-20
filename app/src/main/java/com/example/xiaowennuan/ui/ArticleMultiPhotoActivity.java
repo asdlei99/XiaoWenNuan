@@ -1,9 +1,5 @@
 package com.example.xiaowennuan.ui;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -12,19 +8,18 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.animation.DecelerateInterpolator;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.example.xiaowennuan.R;
 import com.example.xiaowennuan.db.ArticleHeartModel;
 import com.example.xiaowennuan.db.ArticleModel;
 import com.example.xiaowennuan.db.ArticlePhotoModel;
+import com.example.xiaowennuan.util.ShareSDKHelper;
 
 import org.litepal.crud.DataSupport;
 
@@ -32,8 +27,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ArticleMultiPhotoActivity extends AppCompatActivity {
-
-    ProgressBar progressBar;
 
     Toolbar toolbar;
 
@@ -47,8 +40,9 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
     private final static int PHOTO = 2;
     private final static int MAIN = 0;
 
-    private boolean isAnimStart = false;
-    int currentProgress;
+    private String title;
+    private String desc;
+    private String image1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,7 +55,6 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
         category = intent.getStringExtra("category");
 
         toolbar = (Toolbar) findViewById(R.id.article_multi_photo_toolbar);
-
         setSupportActionBar(toolbar);
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
@@ -83,9 +76,11 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case HEART:
-
                     ArrayList<ArticleHeartModel> heartArrayList = (ArrayList<ArticleHeartModel>) msg.obj;
                     ArticleHeartModel heartItem = heartArrayList.get(0);
+                    title = heartItem.title;
+                    desc = heartItem.desc;
+                    image1 = heartItem.image1;
                     toolbar.setTitle(heartItem.category);
                     final WebView heartWebView = (WebView) findViewById(R.id.article_multi_photo_content_web_view);
                     WebSettings heartSettings = heartWebView.getSettings();
@@ -102,11 +97,13 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
                         }
                     });
                     heartWebView.loadDataWithBaseURL("http", heartItem.content, "text/html", "utf-8", null);
-
                     break;
                 case PHOTO:
                     ArrayList<ArticlePhotoModel> photoArrayList = (ArrayList<ArticlePhotoModel>) msg.obj;
                     ArticlePhotoModel photoItem = photoArrayList.get(0);
+                    title = photoItem.title;
+                    desc = photoItem.desc;
+                    image1 = photoItem.image1;
                     toolbar.setTitle(photoItem.category);
                     WebView photoWebView = (WebView) findViewById(R.id.article_multi_photo_content_web_view);
                     WebSettings photoSettings = photoWebView.getSettings();
@@ -126,6 +123,9 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
                 case MAIN:
                     ArrayList<ArticleModel> arrayList = (ArrayList<ArticleModel>) msg.obj;
                     ArticleModel item = arrayList.get(0);
+                    title = item.title;
+                    desc = item.desc;
+                    image1 = item.image1;
                     toolbar.setTitle(item.category);
                     WebView webView = (WebView) findViewById(R.id.article_multi_photo_content_web_view);
                     WebSettings settings = webView.getSettings();
@@ -148,46 +148,6 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
         }
     };
 
-    /**
-     * progressBar消失动画
-     */
-    private void startDismissAnimation(final int progress) {
-        ObjectAnimator anim = ObjectAnimator.ofFloat(progressBar, "alpha", 1.0f, 0.0f);
-        anim.setDuration(1500);  // 动画时长
-        anim.setInterpolator(new DecelerateInterpolator());     // 减速
-        // 关键, 添加动画进度监听器
-        anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-
-            @Override
-            public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                float fraction = valueAnimator.getAnimatedFraction();      // 0.0f ~ 1.0f
-                int offset = 100 - progress;
-                progressBar.setProgress((int) (progress + offset * fraction));
-            }
-        });
-
-        anim.addListener(new AnimatorListenerAdapter() {
-
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                // 动画结束
-                progressBar.setProgress(0);
-                progressBar.setVisibility(View.GONE);
-                isAnimStart = false;
-            }
-        });
-        anim.start();
-    }
-
-    /**
-     * progressBar递增动画
-     */
-    private void startProgressAnimation(int newProgress) {
-        ObjectAnimator animator = ObjectAnimator.ofInt(progressBar, "progress", currentProgress, newProgress);
-        animator.setDuration(300);
-        animator.setInterpolator(new DecelerateInterpolator());
-        animator.start();
-    }
 
     /**
      * 初始化
@@ -232,12 +192,12 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
                         }
                         break;
                 }
-                Log.d(TAG, "message.what: " + String.valueOf(message.what));
+                //Log.d(TAG, "message.what: " + String.valueOf(message.what));
 
             }
         }).start();
 
-        Log.d(TAG, "aid:" + String.valueOf(aId));
+        //Log.d(TAG, "aid:" + String.valueOf(aId));
         //Log.d(TAG, "size:" + String.valueOf(arrayList.size()));
     }
 
@@ -247,8 +207,33 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
             case android.R.id.home:
                 finish();
                 return true;
+            case R.id.menu_article_toolbar_share:
+                ArrayList<String> list = new ArrayList<>();
+                String domain = this.getString(R.string.domain_name);
+                String article_url = domain + "/articles/get_article/?id="
+                        + String.valueOf(aId);
+                list.add(title);  // setTitle
+                list.add(article_url);  // setTitleUrl
+                list.add(desc);  // setText
+                if (image1 != "" || image1 != null) {
+                    list.add(image1);  // setImageUrl
+                } else {
+                    list.add(domain + "/static/images/common/ic_launcher.png");  // 添加应用图标的url
+                }
+                list.add(article_url);  // setUrl
+                list.add("my comment");  // setComment
+                list.add("小温暖");  // setSite
+                list.add(domain);  // setSiteUrl
+                ShareSDKHelper helper = new ShareSDKHelper(this, list);
+                helper.showShare();
         }
         return super.onOptionsItemSelected(menuItem);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_article_toolbar, menu);
+        return true;
     }
 
 }

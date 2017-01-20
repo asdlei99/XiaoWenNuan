@@ -9,6 +9,7 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebSettings;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.example.xiaowennuan.R;
+import com.example.xiaowennuan.util.ShareSDKHelper;
 
 public class RandomArticleActivity extends AppCompatActivity {
 
@@ -35,7 +37,9 @@ public class RandomArticleActivity extends AppCompatActivity {
 
     private final static String TAG = "RandomArticleActivity";
 
-    ImageView toolBarImageView;
+    private ArticleRandomModel model;
+
+    private ImageView toolBarImageView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,13 +69,13 @@ public class RandomArticleActivity extends AppCompatActivity {
     private Handler initMainHandler = new Handler() {
         public void handleMessage(Message msg) {
 
-            ArticleRandomModel item = (ArticleRandomModel) msg.obj;
-            if (item.image1 != null) {
-                Glide.with(RandomArticleActivity.this).load(item.image1)
+            model = (ArticleRandomModel) msg.obj;
+            if (model.image1 != null) {
+                Glide.with(RandomArticleActivity.this).load(model.image1)
                         .placeholder(R.drawable.placeholder_big).into(toolBarImageView);
             }
             // 设置toolbar标题
-            collapsingToolbar.setTitle(item.category);
+            collapsingToolbar.setTitle(model.category);
 
             WebView webView = (WebView) findViewById(R.id.article_content_web_view);
             WebSettings settings = webView.getSettings();
@@ -87,7 +91,7 @@ public class RandomArticleActivity extends AppCompatActivity {
                     //progressBar.setVisibility(View.GONE);
                 }
             });
-            webView.loadDataWithBaseURL("http", item.content, "text/html", "utf-8", null);
+            webView.loadDataWithBaseURL("http", model.content, "text/html", "utf-8", null);
         }
     };
 
@@ -115,9 +119,33 @@ public class RandomArticleActivity extends AppCompatActivity {
             case android.R.id.home:
                 finish();
                 return true;
+            case R.id.menu_article_toolbar_share:
+                ArrayList<String> list = new ArrayList<>();
+                String domain = this.getString(R.string.domain_name);
+                String article_url = domain + "/articles/get_article/?id="
+                        + String.valueOf(model.aId);
+                list.add(model.title);  // setTitle
+                list.add(article_url);  // setTitleUrl
+                list.add(model.desc);  // setText
+                if (model.image1 != "" || model.image1 != null) {
+                    list.add(model.image1);  // setImageUrl
+                } else {
+                    list.add(domain + "/static/images/common/ic_launcher.png");  // 添加应用图标的url
+                }
+                list.add(article_url);  // setUrl
+                list.add("my comment");  // setComment
+                list.add("小温暖");  // setSite
+                list.add(domain);  // setSiteUrl
+                ShareSDKHelper helper = new ShareSDKHelper(this, list);
+                helper.showShare();
         }
         return super.onOptionsItemSelected(menuItem);
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_article_toolbar, menu);
+        return true;
+    }
 
 }
