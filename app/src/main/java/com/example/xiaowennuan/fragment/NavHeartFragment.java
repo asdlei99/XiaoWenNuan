@@ -128,6 +128,7 @@ public class NavHeartFragment extends Fragment {
                 int aId = mArticleList.get(position).aId;
                 intent.putExtra("aid", aId);
                 intent.putExtra("category", "heart");
+                System.out.println("clicked!!!!!!");
                 startActivity(intent);
                 }
 

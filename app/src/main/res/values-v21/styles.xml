@@ -3,4 +3,9 @@
     <style name="ArticleActivityTheme" parent="AppTheme">
         <item name="android:statusBarColor">@android:color/transparent</item>
     </style>
+
+    <style name="AppTheme.PhotoView." parent="AppTheme">
+        <!--Navigation bar color-->
+        <item name="android:navigationBarColor">@color/dark</item>
+    </style>
 </resources>

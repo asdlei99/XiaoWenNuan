@@ -28,6 +28,7 @@ import java.util.List;
 
 import com.example.xiaowennuan.R;
 import com.example.xiaowennuan.util.ShareSDKHelper;
+import com.example.xiaowennuan.util.WebViewHelper;
 
 public class RandomArticleActivity extends AppCompatActivity {
 
@@ -40,6 +41,8 @@ public class RandomArticleActivity extends AppCompatActivity {
     private ArticleRandomModel model;
 
     private ImageView toolBarImageView;
+
+    private WebView webView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,13 +58,18 @@ public class RandomArticleActivity extends AppCompatActivity {
         if (actionBar != null) {
             actionBar.setDisplayHomeAsUpEnabled(true);
         }
-
         //progressBar = (ProgressBar) findViewById(R.id.article_progressbar);
+        webView = (WebView) findViewById(R.id.article_content_web_view);
 
         initArticleContent();
 
     }
 
+    @Override
+    protected void onDestroy() {
+        webView.destroy();
+        super.onDestroy();
+    }
 
     /**
      * 异步初始化
@@ -77,21 +85,8 @@ public class RandomArticleActivity extends AppCompatActivity {
             // 设置toolbar标题
             collapsingToolbar.setTitle(model.category);
 
-            WebView webView = (WebView) findViewById(R.id.article_content_web_view);
-            WebSettings settings = webView.getSettings();
-            settings.setJavaScriptEnabled(true);
-            settings.setDomStorageEnabled(true);
-            //settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
-            settings.setAppCacheEnabled(true);
-            settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-            webView.setWebViewClient(new WebViewClient() {
-                // webview加载完成
-                @Override
-                public void onPageFinished(WebView view, String url) {
-                    //progressBar.setVisibility(View.GONE);
-                }
-            });
-            webView.loadDataWithBaseURL("http", model.content, "text/html", "utf-8", null);
+            WebViewHelper helper = new WebViewHelper(RandomArticleActivity.this);
+            helper.initWebView(webView, model.content);
         }
     };
 

@@ -23,6 +23,7 @@ import java.util.List;
 import com.example.xiaowennuan.R;
 import com.example.xiaowennuan.db.ArticleRandomModel;
 import com.example.xiaowennuan.util.ShareSDKHelper;
+import com.example.xiaowennuan.util.WebViewHelper;
 
 public class RandomMultiPhotoActivity extends AppCompatActivity {
 
@@ -31,6 +32,8 @@ public class RandomMultiPhotoActivity extends AppCompatActivity {
     private ArticleRandomModel model;
 
     private final static String TAG = "RArticleMultiActivity";
+
+    WebView webView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,10 +49,15 @@ public class RandomMultiPhotoActivity extends AppCompatActivity {
         }
 
         //progressBar = (ProgressBar) findViewById(R.id.article_multi_photo_progressbar);
-
+        webView = (WebView) findViewById(R.id.article_multi_photo_content_web_view);
         initArticle();
     }
 
+    @Override
+    protected void onDestroy() {
+        webView.destroy();
+        super.onDestroy();
+    }
 
     /**
      * 异步初始化handler
@@ -58,21 +66,8 @@ public class RandomMultiPhotoActivity extends AppCompatActivity {
         public void handleMessage(Message msg) {
 
             model = (ArticleRandomModel) msg.obj;
-            WebView webView = (WebView) findViewById(R.id.article_multi_photo_content_web_view);
-            WebSettings settings = webView.getSettings();
-            settings.setJavaScriptEnabled(true);
-            settings.setDomStorageEnabled(true);
-            settings.setAppCacheEnabled(true);
-            settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-
-            webView.setWebViewClient(new WebViewClient() {
-                @Override
-                public void onPageFinished(WebView view, String url) {
-                    //progressBar.setVisibility(View.GONE);
-                }
-            });
-
-            webView.loadDataWithBaseURL("http", model.content, "text/html", "utf-8", null);
+            WebViewHelper helper = new WebViewHelper(RandomMultiPhotoActivity.this);
+            helper.initWebView(webView, model.content);
         }
     };
 

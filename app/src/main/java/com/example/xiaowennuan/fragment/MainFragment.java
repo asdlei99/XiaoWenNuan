@@ -45,6 +45,8 @@ import org.litepal.crud.DataSupport;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -97,6 +99,9 @@ public class MainFragment extends Fragment {
     // 小于此数才直接更新
     private int updateCountLimit = 10;
 
+    private final int REFRESH = 1;
+    private final int LOADMORE = 2;
+
     // 当前activity的文章列表
     protected ArrayList<ArticleModel> mArticleList;
     // loadmore每次请求的列表
@@ -138,7 +143,7 @@ public class MainFragment extends Fragment {
         mLRecyclerViewAdapter.setOnItemClickListener(new OnItemClickListener() {
             @Override
             public void onItemClick(View view, int position) {
-                Log.d(TAG, "position: " + String.valueOf(position));
+                //Log.d(TAG, "position: " + String.valueOf(position));
                 Intent intent = new Intent("com.example.xiaowennuan.OPEN_ARTICLE");
                 int mode = mArticleList.get(position).mode;
                 final String ARTICLE = "com.example.xiaowennuan.ARTICLE";
@@ -167,6 +172,14 @@ public class MainFragment extends Fragment {
             }
         });
 
+        setOnRefresh();
+
+        setLoadMore();
+
+        return view;
+    }
+
+    private void setOnRefresh() {
         mRecyclerView.setOnRefreshListener(new OnRefreshListener() {
             @Override
             public void onRefresh() {
@@ -177,7 +190,9 @@ public class MainFragment extends Fragment {
                 requestData();
             }
         });
+    }
 
+    private void setLoadMore() {
         mRecyclerView.setOnLoadMoreListener(new OnLoadMoreListener() {
             @Override
             public void onLoadMore() {
@@ -193,16 +208,11 @@ public class MainFragment extends Fragment {
                     requestData();
                 } else {
                     //the end
-                   mRecyclerView.setNoMore(true);
+                    mRecyclerView.setNoMore(true);
                 }
             }
         });
-
-
-        return view;
     }
-
-
 
     private void notifyDataSetChanged() {
         mLRecyclerViewAdapter.notifyDataSetChanged();
@@ -263,7 +273,8 @@ public class MainFragment extends Fragment {
                     }
                     notifyDataSetChanged();
                     if(isLoadMore) {
-                        RecyclerViewStateUtils.setFooterViewState(getActivity(), mRecyclerView, REQUEST_COUNT, LoadingFooter.State.NetWorkError, mFooterClick);
+                        RecyclerViewStateUtils.setFooterViewState(getActivity(), mRecyclerView,
+                                REQUEST_COUNT, LoadingFooter.State.NetWorkError, mFooterClick);
                     }
 
                     break;
@@ -414,14 +425,25 @@ public class MainFragment extends Fragment {
         String queryAddress = getActivity().getString(R.string.domain_name) + "/articles/get_article_list/all/?action="
                 + requestAction + "&request_count=" + REQUEST_COUNT + "&current_count=" +
                 mCurrentCounter + "&newest_ts=" + newestTs;
-
+        System.out.println("请求地址：" + queryAddress);
         NetworkUtils.sendOkHttpRequest(queryAddress, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                e.printStackTrace();
+                System.out.println("onFailure");
+                System.out.println("e.getCause():" + e.getCause());
+                Message msg = new Message();
+                if (isRefresh) {
+                    isRefresh = false;  // 重置刷新状态
+                    msg.what = REFRESH;
+                } else if (isLoadMore) {
+                    isLoadMore = false;
+                    msg.what = LOADMORE;
+                }
+                loadFailedHanlder.sendMessage(msg);
             }
             @Override
             public void onResponse(Call call, Response response) throws IOException {
+                System.out.println("onResponse");
                 final String responseText = response.body().string();
                 //Log.d("MyLog", responseText);
                 // 处理数据，并写入数据库
@@ -449,15 +471,37 @@ public class MainFragment extends Fragment {
                     }
                 }).start();
 
-
-
             }
         });
     }
 
+    /**
+     * 处理刷新失败
+     */
+    private Handler loadFailedHanlder = new Handler() {
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case REFRESH:
+                    FragmentActivity activity = getActivity();
+                    Toast.makeText(activity, "请求超时，请检查本机网络，或稍后再试。", Toast.LENGTH_LONG).show();
+                    mRecyclerView.refreshComplete();
+                    break;
+                case LOADMORE:
+                    //mLRecyclerViewAdapter.removeFooterView();  //
+                    //addFooter("网络不给力，加载失败");
+                    RecyclerViewStateUtils.setFooterViewState(getActivity(), mRecyclerView, REQUEST_COUNT, LoadingFooter.State.NetWorkError, mFooterClick);
+                    break;
+            }
+
+        }
+
+    };
+
+
     private View.OnClickListener mFooterClick = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
+            isLoadMore = true;
             RecyclerViewStateUtils.setFooterViewState(getActivity(), mRecyclerView, REQUEST_COUNT, LoadingFooter.State.Loading, null);
             requestData();
         }
@@ -473,7 +517,6 @@ public class MainFragment extends Fragment {
                 case 1: //refresh
                     mDataAdapter.setDataList(mArticleList);
                     isRefresh = false;
-                    //Log.d(TAG, "refresh Complete...");
                     mRecyclerView.refreshComplete();
                     break;
                 case 2: //loadmore
@@ -554,7 +597,7 @@ public class MainFragment extends Fragment {
         if (!TextUtils.isEmpty(response)) {
             try {
                 // 先转JsonObj
-                //Log.d(TAG, "response：" + response);
+                Log.d(TAG, "response：" + response);
                 JsonObject jsonObject = new JsonParser().parse(response).getAsJsonObject();
                 JsonArray jsonArray = jsonObject.getAsJsonArray("article_list");
                 JsonPrimitive jsonPrimitive = jsonObject.getAsJsonPrimitive("total_count");

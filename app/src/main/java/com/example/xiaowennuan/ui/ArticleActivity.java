@@ -22,6 +22,7 @@ import com.example.xiaowennuan.R;
 import com.example.xiaowennuan.db.ArticleModel;
 import com.example.xiaowennuan.db.ArticleReadModel;
 import com.example.xiaowennuan.util.ShareSDKHelper;
+import com.example.xiaowennuan.util.WebViewHelper;
 
 import org.litepal.crud.DataSupport;
 
@@ -41,6 +42,8 @@ public class ArticleActivity extends AppCompatActivity {
     private int aId;
 
     ImageView toolBarImageView;
+
+    private WebView webView;
 
     private final static int READ = 1;
     private final static int MAIN = 0;
@@ -68,11 +71,16 @@ public class ArticleActivity extends AppCompatActivity {
         }
 
         //progressBar = (ProgressBar) findViewById(R.id.article_progressbar);
-
+        webView = (WebView) findViewById(R.id.article_content_web_view);
         initArticleContent();
 
     }
 
+    @Override
+    protected void onDestroy() {
+        webView.destroy();
+        super.onDestroy();
+    }
 
     /**
      * 异步初始化
@@ -91,22 +99,8 @@ public class ArticleActivity extends AppCompatActivity {
                   collapsingToolbar.setTitle(item.category);
 
                   // 初始化WebView
-                  final WebView webView = (WebView) findViewById(R.id.article_content_web_view);
-                  WebSettings settings = webView.getSettings();
-                  settings.setJavaScriptEnabled(true);
-                  settings.setDomStorageEnabled(true);
-                  //settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
-                  settings.setAppCacheEnabled(true);
-                  settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-                  webView.setWebViewClient(new WebViewClient() {
-                      // webview加载完成
-                      @Override
-                      public void onPageFinished(WebView view, String url) {
-                          //progressBar.setVisibility(View.GONE);
-                      }
-                  });
-
-                  webView.loadDataWithBaseURL("http", item.content, "text/html", "utf-8", null);
+                  WebViewHelper helper = new WebViewHelper(ArticleActivity.this);
+                  helper.initWebView(webView, item.content);
                   break;
               default:
                   Toast.makeText(ArticleActivity.this, "文章不存在", Toast.LENGTH_SHORT).show();
@@ -127,20 +121,9 @@ public class ArticleActivity extends AppCompatActivity {
                     // 设置toolbar标题
                     collapsingToolbar.setTitle(model.category);
 
-                    WebView webView = (WebView) findViewById(R.id.article_content_web_view);
-                    WebSettings settings = webView.getSettings();
-                    //settings.setJavaScriptEnabled(true);
-                    //settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
-                    settings.setAppCacheEnabled(true);
-                    settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-                    webView.setWebViewClient(new WebViewClient() {
-                        // webview加载完成
-                        @Override
-                        public void onPageFinished(WebView view, String url) {
-                            //progressBar.setVisibility(View.GONE);
-                        }
-                    });
-                    webView.loadDataWithBaseURL("http", model.content, "text/html", "utf-8", null);
+                    final WebView webView = (WebView) findViewById(R.id.article_content_web_view);
+                    WebViewHelper helper = new WebViewHelper(ArticleActivity.this);
+                    helper.initWebView(webView, model.content);
             }
         }
     };

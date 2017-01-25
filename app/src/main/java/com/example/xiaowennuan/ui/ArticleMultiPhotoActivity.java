@@ -1,5 +1,7 @@
 package com.example.xiaowennuan.ui;
 
+import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -10,6 +12,10 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -20,7 +26,9 @@ import com.example.xiaowennuan.db.ArticleHeartModel;
 import com.example.xiaowennuan.db.ArticleModel;
 import com.example.xiaowennuan.db.ArticlePhotoModel;
 import com.example.xiaowennuan.util.ShareSDKHelper;
+import com.example.xiaowennuan.util.WebViewHelper;
 
+import org.json.JSONArray;
 import org.litepal.crud.DataSupport;
 
 import java.util.ArrayList;
@@ -43,17 +51,20 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
     private String title;
     private String desc;
     private String image1;
+    private String content;
+
+    WebView webView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_article_multi_photo);
-
+        //Log.d(TAG, "ArticleMultiActivity starting....");
         Intent intent = getIntent();
         aId = intent.getIntExtra("aid", -1);
         category = intent.getStringExtra("category");
-
+        //Log.d(TAG, "category:" + category);
         toolbar = (Toolbar) findViewById(R.id.article_multi_photo_toolbar);
         setSupportActionBar(toolbar);
         ActionBar actionBar = getSupportActionBar();
@@ -63,17 +74,23 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
 
         //progressBar = (ProgressBar) findViewById(R.id.article_multi_photo_progressbar);
         //progressBar.setVisibility(View.VISIBLE);
-
+        webView = (WebView) findViewById(R.id.article_multi_photo_content_web_view);
         // 根据不同category初始化文章内容
         initArticle();
     }
 
+    @Override
+    protected void onDestroy() {
+        webView.destroy();
+        super.onDestroy();
+    }
 
     /**
      * 异步初始化handler
      */
     private Handler initHeartHandler = new Handler() {
         public void handleMessage(Message msg) {
+            System.out.println("msg.what:" + String.valueOf(msg.what));
             switch (msg.what) {
                 case HEART:
                     ArrayList<ArticleHeartModel> heartArrayList = (ArrayList<ArticleHeartModel>) msg.obj;
@@ -81,22 +98,8 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
                     title = heartItem.title;
                     desc = heartItem.desc;
                     image1 = heartItem.image1;
+                    content = heartItem.content;
                     toolbar.setTitle(heartItem.category);
-                    final WebView heartWebView = (WebView) findViewById(R.id.article_multi_photo_content_web_view);
-                    WebSettings heartSettings = heartWebView.getSettings();
-                    heartSettings.setJavaScriptEnabled(true);
-                    heartSettings.setDomStorageEnabled(true);
-                    heartSettings.setAppCacheEnabled(true);
-                    heartSettings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-
-                    heartWebView.setWebViewClient(new WebViewClient() {
-
-                        @Override
-                        public void onPageFinished(WebView view, String url) {
-                            //progressBar.setVisibility(View.GONE);
-                        }
-                    });
-                    heartWebView.loadDataWithBaseURL("http", heartItem.content, "text/html", "utf-8", null);
                     break;
                 case PHOTO:
                     ArrayList<ArticlePhotoModel> photoArrayList = (ArrayList<ArticlePhotoModel>) msg.obj;
@@ -104,21 +107,8 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
                     title = photoItem.title;
                     desc = photoItem.desc;
                     image1 = photoItem.image1;
+                    content = photoItem.content;
                     toolbar.setTitle(photoItem.category);
-                    WebView photoWebView = (WebView) findViewById(R.id.article_multi_photo_content_web_view);
-                    WebSettings photoSettings = photoWebView.getSettings();
-                    photoSettings.setJavaScriptEnabled(true);
-                    photoSettings.setDomStorageEnabled(true);
-                    photoSettings.setAppCacheEnabled(true);
-                    photoSettings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-                    photoWebView.setWebViewClient(new WebViewClient() {
-                        @Override
-                        public void onPageFinished(WebView view, String url) {
-                            //progressBar.setVisibility(View.GONE);
-                        }
-
-                    });
-                    photoWebView.loadDataWithBaseURL("", photoItem.content, "text/html", "utf-8", null);
                     break;
                 case MAIN:
                     ArrayList<ArticleModel> arrayList = (ArrayList<ArticleModel>) msg.obj;
@@ -126,27 +116,19 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
                     title = item.title;
                     desc = item.desc;
                     image1 = item.image1;
+                    content = item.content;
                     toolbar.setTitle(item.category);
-                    WebView webView = (WebView) findViewById(R.id.article_multi_photo_content_web_view);
-                    WebSettings settings = webView.getSettings();
-                    settings.setJavaScriptEnabled(true);
-                    settings.setDomStorageEnabled(true);
-                    settings.setAppCacheEnabled(true);
-                    settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-                    webView.setWebViewClient(new WebViewClient() {
-                        @Override
-                        public void onPageFinished(WebView view, String url) {
-                            //progressBar.setVisibility(View.GONE);
-                        }
-                    });
-                    webView.loadDataWithBaseURL("http", item.content, "text/html", "utf-8", null);
                     break;
                 default:
                     Toast.makeText(ArticleMultiPhotoActivity.this, "文章不存在", Toast.LENGTH_SHORT).show();
                     break;
             }
+
+            WebViewHelper webViewHelper = new WebViewHelper(ArticleMultiPhotoActivity.this);
+            webViewHelper.initWebView(webView, content);
         }
     };
+
 
 
     /**
@@ -158,7 +140,7 @@ public class ArticleMultiPhotoActivity extends AppCompatActivity {
             @Override
             public void run() {
                 Message message = new Message();
-                Log.d(TAG, "分类：" + category);
+                //Log.d(TAG, "分类：" + category);
                 switch (category) {
                     case "heart":
                         List<ArticleHeartModel> heartList = DataSupport.where("aid = ?", String.valueOf(aId))
