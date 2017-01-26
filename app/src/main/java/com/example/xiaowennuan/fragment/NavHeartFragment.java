@@ -72,6 +72,7 @@ public class NavHeartFragment extends Fragment {
     // 请求的动作，分为refresh和loadmore
     private static String requestAction = "refresh";
 
+    // widget
     private LRecyclerView mRecyclerView = null;
 
     private DataAdapter mDataAdapter = null;
@@ -80,14 +81,20 @@ public class NavHeartFragment extends Fragment {
 
     private ProgressBar progressBar;
 
-    private boolean isRefresh = false;
 
+    private boolean isRefresh = false;
     private boolean isLoadMore = false;
 
-    // 当前activity的文章列表
-    protected ArrayList<ArticleHeartModel> mArticleList;
-    // loadmore每次请求的列表
-    protected ArrayList<ArticleHeartModel> mNewList;
+    // check update
+    private boolean firstLoad = true;
+    private int updateCount;
+    private int updateCountLimit = 10;  // 小于此数才直接更新
+
+    private final int REFRESH = 1;
+    private final int LOADMORE = 2;
+
+    protected ArrayList<ArticleHeartModel> mArticleList;  // 当前activity的文章列表
+    protected ArrayList<ArticleHeartModel> mNewList;  // loadmore每次请求的列表
 
 
     @Override
@@ -137,9 +144,7 @@ public class NavHeartFragment extends Fragment {
         mRecyclerView.setOnRefreshListener(new OnRefreshListener() {
             @Override
             public void onRefresh() {
-                //Log.d(TAG, "setOnRefreshListener");
-                //RecyclerViewStateUtils.setFooterViewState(mRecyclerView, LoadingFooter.State.Normal);
-                //mLRecyclerViewAdapter.notifyDataSetChanged();//fix bug:crapped or attached views may not be recycled. isScrap:false isAttached:true
+                mLRecyclerViewAdapter.removeHeaderView();
                 mCurrentCounter = 0;
                 isRefresh = true;
                 requestAction = "refresh";
@@ -150,18 +155,9 @@ public class NavHeartFragment extends Fragment {
         mRecyclerView.setOnLoadMoreListener(new OnLoadMoreListener() {
             @Override
             public void onLoadMore() {
-                /*LoadingFooter.State state = RecyclerViewStateUtils.getFooterViewState(mRecyclerView);
-                if(state == LoadingFooter.State.Loading) {
-                    //Log.d(TAG, "the state is Loading, just wait..");
-                    return;
-                }*/
-
-                //Log.d(TAG, "mCurrentCounter:" + mCurrentCounter);
-                //Log.d(TAG, "totalCounter:" + totalCounter);
-
                 // 读取totalCounter
-                SharedPreferences pref = getActivity().getSharedPreferences("article_data", MODE_PRIVATE);
-                int totalCounter = pref.getInt("totalCounter", 0);
+                SharedPreferences pref = getActivity().getSharedPreferences("article_data_heart", MODE_PRIVATE);
+                totalCounter = pref.getInt("totalCounter", 0);
 
                 if (mCurrentCounter < totalCounter) {
                     // loading more
@@ -193,6 +189,13 @@ public class NavHeartFragment extends Fragment {
         mDataAdapter.addAll(list);
     }
 
+    /**
+     * 更新批量插入
+     * @param list
+     */
+    private void insertItems(ArrayList<ArticleHeartModel> list) {
+        mDataAdapter.insertAll(list);
+    }
 
     /**
      * 处理网络请求
@@ -250,8 +253,78 @@ public class NavHeartFragment extends Fragment {
         String queryAddress = getActivity().getString(R.string.domain_name) + "/articles/get_article_list/heart/?action="
                 + requestAction + "&request_count=" + REQUEST_COUNT + "&current_count=" +
                 mCurrentCounter + "&newest_ts=" + newestTs;
-        //showProgressDialog();
-        //Log.d(TAG, queryAddress);
+        NetworkUtils.sendOkHttpRequest(queryAddress, new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Message msg = new Message();
+                if (isRefresh) {
+                    isRefresh = false;  // 重置刷新状态
+                    msg.what = REFRESH;
+                } else if (isLoadMore) {
+                    isLoadMore = false;
+                    msg.what = LOADMORE;
+                }
+                loadFailedHanlder.sendMessage(msg);
+            }
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                final String responseText = response.body().string();
+                // 处理数据，并写入数据库
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        final boolean result = handleArticleItemResponse(responseText);
+                        if (result) {  // 请求成功
+                            getActivity().runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    initArticleData();  // 再次请求本地数据库查询
+                                }
+                            });
+                        } else {
+                            getActivity().runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(getActivity(), "获取文章列表失败",
+                                            Toast.LENGTH_SHORT).show();
+                                }
+                            });
+
+                        }
+                    }
+                }).start();
+
+            }
+        });
+    }
+
+    /**
+     * 处理刷新失败
+     */
+    private Handler loadFailedHanlder = new Handler() {
+        public void handleMessage(Message msg) {
+            FragmentActivity activity = getActivity();
+            Toast.makeText(activity, R.string.my_header_network_timeout, Toast.LENGTH_LONG).show();
+            switch (msg.what) {
+                case REFRESH:
+                    mRecyclerView.refreshComplete();
+                    break;
+                case LOADMORE:
+                    RecyclerViewStateUtils.setFooterViewState(getActivity(), mRecyclerView,
+                            REQUEST_COUNT, LoadingFooter.State.NetWorkError, mFooterClick);
+                    break;
+            }
+
+        }
+
+    };
+
+    /**
+     * 检查文章更新
+     */
+    private void checkUpdateFromServer() {
+        String queryAddress = getActivity().getString(R.string.domain_name) + "/articles/check_update/?newest_ts="
+                + newestTs + "&cate=heart";
         NetworkUtils.sendOkHttpRequest(queryAddress, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -260,30 +333,111 @@ public class NavHeartFragment extends Fragment {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final String responseText = response.body().string();
-                //Log.d("MyLog", responseText);
                 // 处理数据，并写入数据库
-                final boolean result = handleArticleItemResponse(responseText);
-                if (result) {  // 请求成功
-                    getActivity().runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            initArticleData();  // 再次请求本地数据库查询
-                        }
-                    });
-                } else {
-                    getActivity().runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getActivity(), "获取文章列表失败",
-                                    Toast.LENGTH_SHORT).show();
-                        }
-                    });
 
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        final ArrayList<ArticleHeartModel> list = handleCheckUpdateResponse(responseText);
 
-                }
+                        //Log.d(TAG, "updateCount: " + String.valueOf(updateCount));
+                        if (getActivity() != null) {
+                            getActivity().runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (updateCount > 0 && updateCount < updateCountLimit) {
+                                        insertItems(list);  // Data list 插入数据
+                                        mArticleList.addAll(0, list);
+                                        notifyDataSetChanged();  // 刷新 mLRecyclerViewAdapter
+                                    } else if (updateCount >= updateCountLimit) {
+                                        // 加入头部绑定点击事件
+                                        View header = LayoutInflater.from(getActivity()).inflate(
+                                                R.layout.notification_header, (ViewGroup) getView()
+                                                        .findViewById(R.id.nav_heart_recycler_view), false);
+                                        mLRecyclerViewAdapter.addHeaderView(header);
+                                        notifyDataSetChanged();
+                                        TextView textView = (TextView) header.findViewById(R.id.notification_header_text);
+                                        textView.setText(String.valueOf(updateCount) + "篇新文章等你更新呦");
+                                        textView.setOnClickListener(new View.OnClickListener() {
+                                            @Override
+                                            public void onClick(View view) {
+                                                mLRecyclerViewAdapter.removeHeaderView();
+                                                mRecyclerView.forceToRefresh();
+                                            }
+                                        });
+                                    } else if (updateCount == 0) {  // ==0
+                                        // nothing will happen
+                                    } else {  // ==-1
+                                        Toast.makeText(getActivity(), "获取文章更新失败",
+                                                Toast.LENGTH_SHORT).show();
+                                    }
+                                }
+                            });
+                        }
+
+                    }
+                }).start();
 
             }
         });
+    }
+
+    private ArrayList<ArticleHeartModel> handleCheckUpdateResponse(String response) {
+        ArrayList<ArticleHeartModel> newList;
+        if (!TextUtils.isEmpty(response)) {
+            try {
+                JsonObject jsonObject = new JsonParser().parse(response).getAsJsonObject();
+                JsonArray jsonArray = jsonObject.getAsJsonArray("update_list");
+                JsonPrimitive jsonPrimitive = jsonObject.getAsJsonPrimitive("update_count");
+
+                updateCount = Integer.parseInt(jsonPrimitive.toString());
+                Log.d(TAG, "update_count: " + String.valueOf(updateCount));
+
+                if (updateCount > 0 && updateCount < updateCountLimit) {
+                    // 直接更新list
+                    Gson gson = new Gson();
+                    newList = gson.fromJson(jsonArray, new TypeToken<ArrayList<ArticleHeartModel>>() {}.getType());
+                    Log.d(TAG, jsonArray.toString());
+                    for (ArticleHeartModel item : newList) {
+                        ArticleHeartModel ArticleModel = new ArticleHeartModel();
+                        ArticleModel.setaId(item.aId);
+                        ArticleModel.setTitle(item.title);
+                        ArticleModel.setContent(item.content);
+                        ArticleModel.setDesc(item.desc);
+                        ArticleModel.setMode(item.mode);
+                        ArticleModel.setTimeStamp(item.timeStamp);
+                        ArticleModel.setCategory(item.category);
+                        ArticleModel.setImage1(item.image1);
+                        ArticleModel.setImage2(item.image2);
+                        ArticleModel.setImage3(item.image3);
+                        ArticleModel.save();
+                    }
+                    // 记录文章总数
+                    mCurrentCounter += updateCount;
+                    totalCounter += updateCount;
+                    SharedPreferences.Editor editor = getActivity().getSharedPreferences("article_data_heart",
+                            MODE_PRIVATE).edit();
+                    editor.putInt("totalCounter", totalCounter);
+                    editor.apply();
+                    // 重新获取更新后的list，并绑定点击事件
+                    //mArticleList = (ArrayList<ArticleModel>) mDataAdapter.getDataList();
+                    //setOnItemClickListener();
+
+                } else if (updateCount >= updateCountLimit) {
+                    newList = null;
+                    // 提示文章更新
+                } else {  // ==0
+                    newList = null;
+                    // 保持不变
+                }
+
+                return newList;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        updateCount = -1;
+        return null;  //服务器回复为空
     }
 
     private View.OnClickListener mFooterClick = new View.OnClickListener() {
@@ -325,7 +479,7 @@ public class NavHeartFragment extends Fragment {
      */
     private void initArticleData() {
 
-        List<ArticleHeartModel> items = DataSupport.findAll(ArticleHeartModel.class);
+        List<ArticleHeartModel> items = DataSupport.order("timestamp desc").find(ArticleHeartModel.class);
         mCurrentCounter = items.size();
         mArticleList = (ArrayList<ArticleHeartModel>) items;
 
@@ -342,6 +496,10 @@ public class NavHeartFragment extends Fragment {
         if (mCurrentCounter > 0) {
             newestTs = items.get(0).timeStamp;
             //Log.d(TAG, "newestTs：" + items.get(0).aId);
+            if (firstLoad) {
+                checkUpdateFromServer();
+                firstLoad = false;
+            }
         } else {
             requestData();
         }
@@ -376,11 +534,11 @@ public class NavHeartFragment extends Fragment {
         if (!TextUtils.isEmpty(response)) {
             try {
                 // 先转JsonObj
-                Log.d(TAG, "response：" + response);
+                //Log.d(TAG, "response：" + response);
                 JsonObject jsonObject = new JsonParser().parse(response).getAsJsonObject();
                 JsonArray jsonArray = jsonObject.getAsJsonArray("article_list");
                 JsonPrimitive jsonPrimitive = jsonObject.getAsJsonPrimitive("total_count");
-                Log.d("MyLog", "jsonArray::" + jsonArray.toString());
+                //Log.d("MyLog", "jsonArray::" + jsonArray.toString());
                 Gson gson = new Gson();
                 ArrayList<ArticleHeartModel> newList = gson.fromJson(jsonArray, new TypeToken<ArrayList<ArticleHeartModel>>() {}.getType());
 
@@ -410,7 +568,7 @@ public class NavHeartFragment extends Fragment {
 
                 // 记录文章总数
                 SharedPreferences.Editor editor = getActivity().getSharedPreferences(
-                        "article_heart_data", MODE_PRIVATE).edit();
+                        "article_data_heart", MODE_PRIVATE).edit();
                 editor.putInt("totalCounter", totalCounter);
                 editor.apply();
                 mCurrentCounter += newList.size();

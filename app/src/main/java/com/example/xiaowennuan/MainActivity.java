@@ -141,6 +141,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
         // NavigationView
         NavigationView navView = (NavigationView) findViewById(R.id.nav_view);
         navView.setItemIconTintList(null);
